@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/arran4/golang-ical"
 	"github.com/cavaliergopher/grab/v3" // https://pkg.go.dev/github.com/cavaliergopher/grab/v3
 	"log"
 	"os" // https://pkg.go.dev/os
@@ -46,18 +47,28 @@ Loop:
 	}
 
 	fmt.Printf("Download saved to %v\n", resp.Filename)
-  return resp.Filename, nil
+	return resp.Filename, nil
+}
+
+func openIcsFile(s string) (*ics.Calendar, error) {
+	fileReader, err := os.Open(s)
+	if err != nil {
+		return nil, err
+	}
+	return ics.ParseCalendar(fileReader)
 }
 
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
-  err := os.MkdirAll(CACHE_DIR, 0750)
+	err := os.MkdirAll(CACHE_DIR, 0750)
 	if err != nil {
 		log.Fatal(err)
 	}
-  _, err = downloadFile("https://cstpdx.com/schedule/list/?ical=1")
+	filename, err := downloadFile("https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
 		log.Fatal(err)
 	}
+	cal, err := openIcsFile(filename)
+	cal.SerializeTo(os.Stdout)
 
 }
