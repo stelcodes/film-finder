@@ -18,12 +18,19 @@
 
         devShells.default = pkgs.mkShell {
           packages = [
+            pkgs.go
+            pkgs.gopls
             inputs.self.packages.${system}.ferret-cli
           ];
           shellHook = ''
             echo 'Entering Nix dev shell...'
+            # mkdir -p ./local/go
+            export GOPATH="$PWD/local/go"
           '';
         };
 
       });
 }
+
+# Docs
+# https://www.freecodecamp.org/news/golang-environment-gopath-vs-go-mod/
