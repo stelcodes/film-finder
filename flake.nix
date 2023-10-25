@@ -34,3 +34,7 @@
 
 # Docs
 # https://www.freecodecamp.org/news/golang-environment-gopath-vs-go-mod/
+# https://pkg.go.dev/std
+# https://go.dev/tour/list
+# https://go.dev/doc/
+# https://go.dev/ref/spec
