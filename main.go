@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/arran4/golang-ical"
-	"github.com/cavaliergopher/grab/v3" // https://pkg.go.dev/github.com/cavaliergopher/grab/v3
 	"log"
+	"net/url"
 	"os" // https://pkg.go.dev/os
 	"time"
+
+	"github.com/arran4/golang-ical"
+	"github.com/cavaliergopher/grab/v3" // https://pkg.go.dev/github.com/cavaliergopher/grab/v3
 )
 
 // Just using /tmp because that is simplest
@@ -56,6 +58,14 @@ func openIcsFile(s string) (*ics.Calendar, error) {
 		return nil, err
 	}
 	return ics.ParseCalendar(fileReader)
+}
+
+type Screening struct {
+	title string
+  theater string
+  time time.Time
+  url string // url.URL
+  // year string
 }
 
 func main() {
