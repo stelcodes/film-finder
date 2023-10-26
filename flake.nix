@@ -21,7 +21,7 @@
             pkgs.go
             pkgs.gopls
             pkgs.golint
-            pkgs.pprof
+            pkgs.graphviz # for `go tool pprof`
             pkgs.just
             inputs.self.packages.${system}.ferret-cli
           ];
@@ -42,3 +42,4 @@
 # https://go.dev/doc/
 # https://go.dev/ref/spec
 # https://just.systems/man/en
+# https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/
