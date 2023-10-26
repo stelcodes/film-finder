@@ -114,7 +114,7 @@ func printScreenings(screenings []Screening) {
 	if err != nil {
 		tz, err = time.LoadLocation("America/Los_Angeles")
 		if err != nil {
-      log.Fatal("Timezone error")
+			log.Fatal("Timezone error")
 		}
 	}
 	println("SCREENINGS:\n============================================================")
@@ -123,13 +123,11 @@ func printScreenings(screenings []Screening) {
 		println("TIME: " + s.time.In(tz).Format("Mon Jan _2 3:00 PM MST 2006"))
 		println("THEATER: " + s.theater)
 		println("URL: " + s.url)
-    println()
+		println()
 	}
 }
 
-func main() {
-	fmt.Printf("Starting movie-cal...\n")
-	ensureDirs()
+func getClintonStateTheaterScreenings() []Screening {
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
 		log.Fatal(err)
@@ -147,6 +145,11 @@ func main() {
 		s := Screening{title: summary.Value, time: t, theater: "Clinton State Theater", url: url.Value}
 		screenings = append(screenings, s)
 	}
-  printScreenings(screenings)
+	return screenings
+}
 
+func main() {
+	fmt.Printf("Starting movie-cal...\n")
+	ensureDirs()
+	printScreenings(getClintonStateTheaterScreenings())
 }
