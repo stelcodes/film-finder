@@ -20,6 +20,9 @@
           packages = [
             pkgs.go
             pkgs.gopls
+            pkgs.golint
+            pkgs.pprof
+            pkgs.just
             inputs.self.packages.${system}.ferret-cli
           ];
           shellHook = ''
@@ -38,3 +41,4 @@
 # https://go.dev/tour/list
 # https://go.dev/doc/
 # https://go.dev/ref/spec
+# https://just.systems/man/en
