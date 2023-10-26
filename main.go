@@ -109,6 +109,24 @@ type Screening struct {
 	// year string
 }
 
+func printScreenings(screenings []Screening) {
+	tz, err := time.LoadLocation("Local")
+	if err != nil {
+		tz, err = time.LoadLocation("America/Los_Angeles")
+		if err != nil {
+      log.Fatal("Timezone error")
+		}
+	}
+	println("SCREENINGS:\n============================================================")
+	for _, s := range screenings {
+		println("TITLE: " + s.title)
+		println("TIME: " + s.time.In(tz).Format("Mon Jan _2 3:00 PM MST 2006"))
+		println("THEATER: " + s.theater)
+		println("URL: " + s.url)
+    println()
+	}
+}
+
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
 	ensureDirs()
@@ -129,6 +147,6 @@ func main() {
 		s := Screening{title: summary.Value, time: t, theater: "Clinton State Theater", url: url.Value}
 		screenings = append(screenings, s)
 	}
-	log.Print("screenings:", screenings)
+  printScreenings(screenings)
 
 }
