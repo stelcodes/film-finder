@@ -116,7 +116,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-  cal, err := openIcsFile(filename)
-	cal.SerializeTo(os.Stdout)
+	cal, err := openIcsFile(filename)
+	// cal.SerializeTo(os.Stdout)
+	screenings := make([]Screening, 0, 100)
+	for _, e := range cal.Events() {
+		t, err := e.GetStartAt()
+		summary := e.GetProperty("SUMMARY")
+		url := e.GetProperty("URL")
+		if err != nil {
+			continue
+		}
+		s := Screening{title: summary.Value, time: t, theater: "Clinton State Theater", url: url.Value}
+		screenings = append(screenings, s)
+	}
+	log.Print("screenings:", screenings)
 
 }
