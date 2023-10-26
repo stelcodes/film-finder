@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/url"
+	// "net/url"
 	"os" // https://pkg.go.dev/os
 	"time"
 
@@ -12,11 +12,47 @@ import (
 )
 
 // Just using /tmp because that is simplest
-const CACHE_DIR = "/tmp/movie-cal-cache"
+const tmpDir = "/tmp/movie-cal-20231026"
+const downloadDir = tmpDir + "/downloads"
+const cacheDir = tmpDir + "/cache"
 
-func downloadFile(s string) (string, error) {
+func ensureDirs() {
+	err := os.MkdirAll(downloadDir, 0750)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.MkdirAll(cacheDir, 0750)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func putFileCache(cacheFileName string, path string) (string, error) {
+	cachePath := cacheDir + "/" + cacheFileName
+	err := os.Rename(path, cachePath)
+	if err != nil {
+		return "", err
+	}
+	return cachePath, nil
+}
+
+func getFileCache(cacheFileName string) (string, error) {
+	cachePath := cacheDir + "/" + cacheFileName
+	_, err := os.Lstat(cachePath)
+	if err != nil {
+		return "", err
+	}
+	return cachePath, nil
+}
+
+func downloadFile(filename string, url string) (string, error) {
+	cachePath, err := getFileCache(filename)
+	if err == nil {
+		log.Printf("Using cached file: %s", cachePath)
+		return cachePath, nil
+	}
 	client := grab.NewClient()
-	req, _ := grab.NewRequest(CACHE_DIR, s)
+	req, _ := grab.NewRequest(downloadDir, url)
 
 	// start download
 	fmt.Printf("Downloading %v...\n", req.URL())
@@ -49,7 +85,12 @@ Loop:
 	}
 
 	fmt.Printf("Download saved to %v\n", resp.Filename)
-	return resp.Filename, nil
+
+	cachePath, err = putFileCache(filename, resp.Filename)
+	if err != nil {
+		return "", nil
+	}
+	return cachePath, nil
 }
 
 func openIcsFile(s string) (*ics.Calendar, error) {
@@ -61,24 +102,21 @@ func openIcsFile(s string) (*ics.Calendar, error) {
 }
 
 type Screening struct {
-	title string
-  theater string
-  time time.Time
-  url string // url.URL
-  // year string
+	title   string
+	theater string
+	time    time.Time
+	url     string // url.URL
+	// year string
 }
 
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
-	err := os.MkdirAll(CACHE_DIR, 0750)
+	ensureDirs()
+	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
 		log.Fatal(err)
 	}
-	filename, err := downloadFile("https://cstpdx.com/schedule/list/?ical=1")
-	if err != nil {
-		log.Fatal(err)
-	}
-	cal, err := openIcsFile(filename)
+  cal, err := openIcsFile(filename)
 	cal.SerializeTo(os.Stdout)
 
 }
