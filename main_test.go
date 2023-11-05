@@ -6,6 +6,6 @@ import (
 
 func Benchmark_getClintonStateTheaterScreenings(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		getClintonStateTheaterScreenings()
+		scrapeClintonStateTheater()
 	}
 }

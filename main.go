@@ -132,7 +132,7 @@ func printScreenings(screenings []Screening) {
 	}
 }
 
-func getClintonStateTheaterScreenings() []Screening {
+func scrapeClintonStateTheater() []Screening {
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
 		log.Fatal(err)
@@ -165,11 +165,11 @@ func getBrowser() *rod.Browser {
 	return rod.New().ControlURL(url).MustConnect()
 }
 
-func scrapeHollywoodEvents(nowShowingEvents rod.Elements) []Screening {
+func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
   screenings := []Screening{}
-	for i, eventEl := range nowShowingEvents {
+	for i, eventGridItemEl := range eventGridItemEls {
 		log.Printf("Event #%d", i+1)
-		titleEl, err := eventEl.Element(".event-grid-header h3")
+		titleEl, err := eventGridItemEl.Element(".event-grid-header h3")
 		if err != nil {
 			log.Printf("Cannot find title")
 			continue
@@ -180,7 +180,7 @@ func scrapeHollywoodEvents(nowShowingEvents rod.Elements) []Screening {
 			continue
 		}
 		log.Printf("Title: %s", title)
-		dayEl, err := eventEl.Element("div.event-grid-showtimes div.carousel-item.active h4.showtimes_date_header")
+		dayEl, err := eventGridItemEl.Element("div.event-grid-showtimes div.carousel-item.active h4.showtimes_date_header")
 		if err != nil {
 			log.Printf("Cannot find day")
 			continue
@@ -197,7 +197,7 @@ func scrapeHollywoodEvents(nowShowingEvents rod.Elements) []Screening {
 		}
 		month := dayFields[1]
 		dayNum := dayFields[2]
-		times, err := eventEl.Elements("div.event-grid-showtimes div.carousel-item.active .showtime-square a")
+		times, err := eventGridItemEl.Elements("div.event-grid-showtimes div.carousel-item.active .showtime-square a")
 		if err != nil {
 			log.Printf("Cannot find times")
 			continue
@@ -216,7 +216,6 @@ func scrapeHollywoodEvents(nowShowingEvents rod.Elements) []Screening {
 			timeNums := timeFields[0]
 			timeAmPm := strings.ToUpper(timeFields[1])
 			year := strconv.Itoa(time.Now().Year())
-			// timeZone := "-0700"
 			location, err := time.LoadLocation("America/Los_Angeles")
 			if err != nil {
 				log.Printf("Could not load theater time zone location")
@@ -245,19 +244,19 @@ func scrapeHollywoodEvents(nowShowingEvents rod.Elements) []Screening {
 	return screenings
 }
 
-func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
+func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
 	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
-	nowShowingEvents := page.MustElements(".event-grid-item")
-  screenings = append(screenings, scrapeHollywoodEvents(nowShowingEvents)...)
+	eventGridItemEls := page.MustElements(".event-grid-item")
+  screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
   buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
   if err != nil {
     log.Printf("Cannot click \"Coming Soon\" button")
     return screenings
   }
   buttonEl.MustClick().WaitStable(time.Second * 3)
-	nowShowingEvents = page.MustElements(".event-grid-item")
-  screenings = append(screenings, scrapeHollywoodEvents(nowShowingEvents)...)
+	eventGridItemEls = page.MustElements(".event-grid-item")
+  screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
   return screenings
 }
 
@@ -266,6 +265,6 @@ func main() {
 	ensureDirs()
 	browser := getBrowser()
 	defer browser.MustClose()
-	// printScreenings(getClintonStateTheaterScreenings())
-	printScreenings(getHollywoodTheaterScreenings(browser))
+	printScreenings(scrapeClintonStateTheater())
+	printScreenings(scrapeHollywoodTheater(browser))
 }
