@@ -133,6 +133,7 @@ func printScreenings(screenings []Screening) {
 }
 
 func scrapeClintonStateTheater() []Screening {
+  log.Printf("Scraping Clinton State Theater...")
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
 		log.Fatal(err)
@@ -245,6 +246,7 @@ func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
 }
 
 func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
+  log.Printf("Scraping Hollywood Theater...")
 	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	eventGridItemEls := page.MustElements(".event-grid-item")
@@ -260,11 +262,25 @@ func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
   return screenings
 }
 
+func scrapeAcademyTheater(browser *rod.Browser) []Screening {
+  log.Printf("Scraping Academy Theater...")
+  screenings := []Screening{}
+  page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
+  eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
+  for i, eventEl := range eventEls {
+		log.Printf("Event #%d", i+1)
+    title := eventEl.MustElement("div.at-np-details-title a").MustText()
+    log.Printf("Title: %s", title)
+  }
+  return screenings
+}
+
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
 	ensureDirs()
 	browser := getBrowser()
 	defer browser.MustClose()
-	printScreenings(scrapeClintonStateTheater())
-	printScreenings(scrapeHollywoodTheater(browser))
+	// printScreenings(scrapeClintonStateTheater())
+	// printScreenings(scrapeHollywoodTheater(browser))
+  scrapeAcademyTheater(browser)
 }
