@@ -13,7 +13,6 @@ import (
 	"github.com/arran4/golang-ical"
 	"github.com/cavaliergopher/grab/v3" // https://pkg.go.dev/github.com/cavaliergopher/grab/v3
 	"github.com/go-rod/rod"             // https://pkg.go.dev/github.com/go-rod/rod
-	// "github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
 )
 
@@ -250,6 +249,14 @@ func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
 	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	nowShowingEvents := page.MustElements(".event-grid-item")
+  screenings = append(screenings, scrapeHollywoodEvents(nowShowingEvents)...)
+  buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
+  if err != nil {
+    log.Printf("Cannot click \"Coming Soon\" button")
+    return screenings
+  }
+  buttonEl.MustClick().WaitStable(time.Second * 3)
+	nowShowingEvents = page.MustElements(".event-grid-item")
   screenings = append(screenings, scrapeHollywoodEvents(nowShowingEvents)...)
   return screenings
 }
