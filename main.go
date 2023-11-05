@@ -1,10 +1,13 @@
 package main
 
 import (
+  "errors"
 	"fmt"
 	"log"
 	// "net/url"
 	"os" // https://pkg.go.dev/os
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/arran4/golang-ical"
@@ -166,9 +169,81 @@ func getBrowser() *rod.Browser {
 func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
 	screenings := make([]Screening, 0, 100)
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
-	nowShowingEvents := page.MustElements(".event-grid-item ")
-	for _, e := range nowShowingEvents {
-		fmt.Println(e)
+	nowShowingEvents := page.MustElements(".event-grid-item")
+	for i, eventEl := range nowShowingEvents {
+		log.Printf("Event #%d", i+1)
+		titleEl, err := eventEl.Element(".event-grid-header h3")
+		if err != nil {
+			log.Printf("Cannot find title")
+			continue
+		}
+		title, err := titleEl.Text()
+		if err != nil {
+			log.Printf("Cannot find title")
+			continue
+		}
+		log.Printf("Title: %s", title)
+		dayEl, err := eventEl.Element("div.event-grid-showtimes div.carousel-item.active h4.showtimes_date_header")
+		if err != nil {
+			log.Printf("Cannot find day")
+			continue
+		}
+		day, err := dayEl.Text()
+		if err != nil {
+			log.Printf("Cannot find day")
+			continue
+		}
+		log.Printf("Day: %s", day)
+		dayFields := strings.Fields(day)
+		if len(dayFields) != 3 {
+			log.Printf("Day is unrecognizable: %s", day)
+		}
+		month := dayFields[1]
+		dayNum := dayFields[2]
+		times, err := eventEl.Elements("div.event-grid-showtimes div.carousel-item.active .showtime-square a")
+		if err != nil {
+			log.Printf("Cannot find times")
+			continue
+		}
+		for _, timeEl := range times {
+			rawTime, err := timeEl.Text()
+			if err != nil {
+				log.Printf("Cannot find time")
+				continue
+			}
+			timeFields := strings.Fields(rawTime)
+			if len(timeFields) != 2 {
+				log.Printf("Time is unrecognizable: %s", rawTime)
+				continue
+			}
+			timeNums := timeFields[0]
+			timeAmPm := strings.ToUpper(timeFields[1])
+			year := strconv.Itoa(time.Now().Year())
+			// timeZone := "-0700"
+			location, err := time.LoadLocation("America/Los_Angeles")
+			if err != nil {
+				log.Printf("Could not load theater time zone location")
+				continue
+			}
+			normalizedTime := strings.Join([]string{timeNums, timeAmPm, month, dayNum, year}, " ")
+			result, err := time.ParseInLocation("3:04 PM January _2 2006", normalizedTime, location)
+			if err != nil {
+				log.Printf("Cannot parse time: %s", normalizedTime)
+				var parseErr *time.ParseError
+				if errors.As(err, &parseErr) {
+					log.Print(parseErr)
+				}
+				continue
+			}
+			url := timeEl.MustAttribute("href")
+			s := Screening{
+				title:   title,
+				time:    result,
+				theater: "Hollywood Theater",
+				url:     "https://hollywoodtheatre.org" + *url,
+			}
+			screenings = append(screenings, s)
+		}
 	}
 	return screenings
 }
@@ -176,8 +251,8 @@ func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
 	ensureDirs()
-  browser := getBrowser()
+	browser := getBrowser()
 	defer browser.MustClose()
-	printScreenings(getClintonStateTheaterScreenings())
+	// printScreenings(getClintonStateTheaterScreenings())
 	printScreenings(getHollywoodTheaterScreenings(browser))
 }
