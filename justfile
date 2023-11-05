@@ -1,6 +1,9 @@
 exec := "./target/movie-cal"
 test-exec := "./local/movie-cal.test"
 
+develop:
+  nix develop -c fish
+
 build:
   go build -o {{exec}} main.go
 
