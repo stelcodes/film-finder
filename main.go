@@ -166,10 +166,8 @@ func getBrowser() *rod.Browser {
 	return rod.New().ControlURL(url).MustConnect()
 }
 
-func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
-	screenings := make([]Screening, 0, 100)
-	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
-	nowShowingEvents := page.MustElements(".event-grid-item")
+func scrapeHollywoodEvents(nowShowingEvents rod.Elements) []Screening {
+  screenings := []Screening{}
 	for i, eventEl := range nowShowingEvents {
 		log.Printf("Event #%d", i+1)
 		titleEl, err := eventEl.Element(".event-grid-header h3")
@@ -246,6 +244,14 @@ func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
 		}
 	}
 	return screenings
+}
+
+func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
+	screenings := []Screening{}
+	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
+	nowShowingEvents := page.MustElements(".event-grid-item")
+  screenings = append(screenings, scrapeHollywoodEvents(nowShowingEvents)...)
+  return screenings
 }
 
 func main() {
