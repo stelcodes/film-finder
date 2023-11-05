@@ -9,6 +9,9 @@ import (
 
 	"github.com/arran4/golang-ical"
 	"github.com/cavaliergopher/grab/v3" // https://pkg.go.dev/github.com/cavaliergopher/grab/v3
+	"github.com/go-rod/rod"             // https://pkg.go.dev/github.com/go-rod/rod
+	// "github.com/go-rod/rod/lib/input"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 // Just using /tmp because that is simplest
@@ -148,8 +151,33 @@ func getClintonStateTheaterScreenings() []Screening {
 	return screenings
 }
 
+func getBrowser() *rod.Browser {
+	chromeBin, ok := os.LookupEnv("CHROME_BIN")
+	if !ok {
+		chromeBin, ok = launcher.LookPath()
+		if !ok {
+			log.Fatal("Cannot find chrome executable")
+		}
+	}
+	url := launcher.New().Bin(chromeBin).MustLaunch()
+	return rod.New().ControlURL(url).MustConnect()
+}
+
+func getHollywoodTheaterScreenings(browser *rod.Browser) []Screening {
+	screenings := make([]Screening, 0, 100)
+	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
+	nowShowingEvents := page.MustElements(".event-grid-item ")
+	for _, e := range nowShowingEvents {
+		fmt.Println(e)
+	}
+	return screenings
+}
+
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
 	ensureDirs()
+  browser := getBrowser()
+	defer browser.MustClose()
 	printScreenings(getClintonStateTheaterScreenings())
+	printScreenings(getHollywoodTheaterScreenings(browser))
 }
