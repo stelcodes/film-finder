@@ -23,12 +23,14 @@
             pkgs.golint
             pkgs.graphviz # for `go tool pprof`
             pkgs.just
+            pkgs.chromium
             inputs.self.packages.${system}.ferret-cli
           ];
           shellHook = ''
             echo 'Entering Nix dev shell...'
             # mkdir -p ./local/go
             export GOPATH="$PWD/local/go"
+            export CHROME_BIN="${pkgs.chromium}/bin/chromium"
           '';
         };
 
