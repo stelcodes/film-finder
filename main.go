@@ -1,7 +1,7 @@
 package main
 
 import (
-  "errors"
+	"errors"
 	"fmt"
 	"log"
 	// "net/url"
@@ -133,7 +133,7 @@ func printScreenings(screenings []Screening) {
 }
 
 func scrapeClintonStateTheater() []Screening {
-  log.Printf("Scraping Clinton State Theater...")
+	log.Printf("Scraping Clinton State Theater...")
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
 		log.Fatal(err)
@@ -167,7 +167,7 @@ func getBrowser() *rod.Browser {
 }
 
 func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
-  screenings := []Screening{}
+	screenings := []Screening{}
 	for i, eventGridItemEl := range eventGridItemEls {
 		log.Printf("Event #%d", i+1)
 		titleEl, err := eventGridItemEl.Element(".event-grid-header h3")
@@ -246,20 +246,20 @@ func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
 }
 
 func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
-  log.Printf("Scraping Hollywood Theater...")
+	log.Printf("Scraping Hollywood Theater...")
 	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	eventGridItemEls := page.MustElements(".event-grid-item")
-  screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
-  buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
-  if err != nil {
-    log.Printf("Cannot click \"Coming Soon\" button")
-    return screenings
-  }
-  buttonEl.MustClick().WaitStable(time.Second * 3)
+	screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
+	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
+	if err != nil {
+		log.Printf("Cannot click \"Coming Soon\" button")
+		return screenings
+	}
+	buttonEl.MustClick().WaitStable(time.Second * 3)
 	eventGridItemEls = page.MustElements(".event-grid-item")
-  screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
-  return screenings
+	screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
+	return screenings
 }
 
 func scrapeAcademyTheater(browser *rod.Browser) []Screening {
