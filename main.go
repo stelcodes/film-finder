@@ -43,9 +43,14 @@ func putFileCache(cacheFileName string, path string) (string, error) {
 
 func getFileCache(cacheFileName string) (string, error) {
 	cachePath := cacheDir + "/" + cacheFileName
-	_, err := os.Lstat(cachePath)
+	fileInfo, err := os.Lstat(cachePath)
 	if err != nil {
 		return "", err
+	}
+	cacheExpired := time.Now().Sub(fileInfo.ModTime()) > 24*time.Hour
+	if cacheExpired {
+		return "", errors.New("File in cache has expired")
+
 	}
 	return cachePath, nil
 }
