@@ -263,16 +263,50 @@ func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
 }
 
 func scrapeAcademyTheater(browser *rod.Browser) []Screening {
-  log.Printf("Scraping Academy Theater...")
-  screenings := []Screening{}
-  page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
-  eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
-  for i, eventEl := range eventEls {
-		log.Printf("Event #%d", i+1)
-    title := eventEl.MustElement("div.at-np-details-title a").MustText()
-    log.Printf("Title: %s", title)
-  }
-  return screenings
+	log.Printf("Scraping Academy Theater...")
+	screenings := []Screening{}
+	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
+	eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
+	filmUrls := []string{}
+	location, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		log.Printf("Could not load theater time zone location")
+		return screenings
+	}
+	for i, eventEl := range eventEls {
+		log.Printf("Movie #%d", i+1)
+		titleEl := eventEl.MustElement("div.at-np-details-title a")
+		url := titleEl.MustAttribute("href")
+		filmUrls = append(filmUrls, *url)
+	}
+	for _, url := range filmUrls {
+		log.Printf("Url: %s", url)
+		filmPage := browser.MustPage(url).MustWaitStable()
+    title := filmPage.MustElement("div.entry-info h1.entry-title").MustText()
+		showtimeDiv := filmPage.MustElement("div.entry-showtime div.showtime")
+		firstDayEl := showtimeDiv.MustElement("div.st-title:not(.passedshowtime)")
+		log.Println(firstDayEl)
+		firstDay := firstDayEl.MustText()
+		log.Printf("Day: %s", firstDay)
+		timesUlEl, _ := firstDayEl.Next()
+		for _, spanEl := range timesUlEl.MustElements("span") {
+			rawTime := spanEl.MustText()
+			log.Printf("Raw time: %s", rawTime)
+			normalizedTime := strings.TrimSpace(rawTime) + " " + strings.TrimSpace(firstDay)
+			result, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
+			if err != nil {
+				log.Printf("Cannot parse time: %s", normalizedTime)
+				var parseErr *time.ParseError
+				if errors.As(err, &parseErr) {
+					log.Print(parseErr)
+				}
+				continue
+			}
+      s := Screening{title: title, time: result, url: url, theater: "Academy Theater"}
+      screenings = append(screenings, s)
+		}
+	}
+	return screenings
 }
 
 func main() {
@@ -282,5 +316,5 @@ func main() {
 	defer browser.MustClose()
 	// printScreenings(scrapeClintonStateTheater())
 	// printScreenings(scrapeHollywoodTheater(browser))
-  scrapeAcademyTheater(browser)
+	printScreenings(scrapeAcademyTheater(browser))
 }
