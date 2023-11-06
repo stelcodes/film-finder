@@ -328,7 +328,9 @@ func main() {
 	ensureDirs()
 	browser := getBrowser()
 	defer browser.MustClose()
-	// printScreenings(scrapeClintonStateTheater())
-	// printScreenings(scrapeHollywoodTheater(browser))
-	printScreenings(scrapeAcademyTheater(browser))
+	screenings := []Screening{}
+	screenings = append(screenings, scrapeClintonStateTheater()...)
+	screenings = append(screenings, scrapeHollywoodTheater(browser)...)
+	screenings = append(screenings, scrapeAcademyTheater(browser)...)
+	printScreenings(screenings)
 }
