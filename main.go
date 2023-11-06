@@ -282,28 +282,37 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 	for _, url := range filmUrls {
 		log.Printf("Url: %s", url)
 		filmPage := browser.MustPage(url).MustWaitStable()
-    title := filmPage.MustElement("div.entry-info h1.entry-title").MustText()
+		title := filmPage.MustElement("div.entry-info h1.entry-title").MustText()
+		log.Printf("Title: %s", title)
 		showtimeDiv := filmPage.MustElement("div.entry-showtime div.showtime")
-		firstDayEl := showtimeDiv.MustElement("div.st-title:not(.passedshowtime)")
-		log.Println(firstDayEl)
-		firstDay := firstDayEl.MustText()
-		log.Printf("Day: %s", firstDay)
-		timesUlEl, _ := firstDayEl.Next()
-		for _, spanEl := range timesUlEl.MustElements("span") {
-			rawTime := spanEl.MustText()
-			log.Printf("Raw time: %s", rawTime)
-			normalizedTime := strings.TrimSpace(rawTime) + " " + strings.TrimSpace(firstDay)
-			result, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
-			if err != nil {
-				log.Printf("Cannot parse time: %s", normalizedTime)
-				var parseErr *time.ParseError
-				if errors.As(err, &parseErr) {
-					log.Print(parseErr)
-				}
+		dayEls := showtimeDiv.MustElements("div.st-title:not(.passedshowtime)")
+		for _, dayEl := range dayEls {
+			log.Println(dayEl)
+			if !dayEl.MustVisible() {
 				continue
 			}
-      s := Screening{title: title, time: result, url: url, theater: "Academy Theater"}
-      screenings = append(screenings, s)
+			day := dayEl.MustText()
+			log.Printf("Day: %s", day)
+			timesEl, _ := dayEl.Next() // Could be nil I think
+			if timesEl == nil || !timesEl.MustVisible() {
+				continue
+			}
+			for _, spanEl := range timesEl.MustElements("span") {
+				rawTime := spanEl.MustText()
+				log.Printf("Raw time: %s", rawTime)
+				normalizedTime := strings.TrimSpace(rawTime) + " " + strings.TrimSpace(day)
+				result, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
+				if err != nil {
+					log.Printf("Cannot parse time: %s", normalizedTime)
+					var parseErr *time.ParseError
+					if errors.As(err, &parseErr) {
+						log.Print(parseErr)
+					}
+					continue
+				}
+				s := Screening{title: title, time: result, url: url, theater: "Academy Theater"}
+				screenings = append(screenings, s)
+			}
 		}
 	}
 	return screenings
