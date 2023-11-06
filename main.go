@@ -6,6 +6,7 @@ import (
 	"log"
 	// "net/url"
 	"os" // https://pkg.go.dev/os
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -332,5 +333,8 @@ func main() {
 	screenings = append(screenings, scrapeClintonStateTheater()...)
 	screenings = append(screenings, scrapeHollywoodTheater(browser)...)
 	screenings = append(screenings, scrapeAcademyTheater(browser)...)
+	sort.Slice(screenings, func(i, j int) bool {
+		return screenings[i].time.Before(screenings[j].time)
+	})
 	printScreenings(screenings)
 }
