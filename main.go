@@ -326,6 +326,15 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 	return screenings
 }
 
+func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
+	log.Printf("Scraping CineMagic Theater...")
+	screenings := []Screening{}
+	page := browser.MustPage("https://tickets.thecinemagictheater.com/now-showing").MustWaitStable()
+  defer page.MustClose()
+  // TODO
+  return screenings
+}
+
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
 	ensureDirs()
