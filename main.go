@@ -255,6 +255,7 @@ func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
 	log.Printf("Scraping Hollywood Theater...")
 	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
+  defer page.MustClose()
 	eventGridItemEls := page.MustElements(".event-grid-item")
 	screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
 	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
@@ -272,6 +273,7 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 	log.Printf("Scraping Academy Theater...")
 	screenings := []Screening{}
 	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
+  defer page.MustClose()
 	eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
 	filmUrls := []string{}
 	location, err := time.LoadLocation("America/Los_Angeles")
