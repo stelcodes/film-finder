@@ -6,6 +6,7 @@ import (
 	"log"
 	// "net/url"
 	"os" // https://pkg.go.dev/os
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -138,6 +139,34 @@ func printScreenings(screenings []Screening) {
 	}
 }
 
+func loadLocation(name string) *time.Location {
+	location, err := time.LoadLocation(name)
+	if err != nil {
+		log.Fatalf("Could not load time location: %s", name)
+	}
+	return location
+}
+
+func getTime(format string, datetime string, location *time.Location) (time.Time, error) {
+	result, err := time.ParseInLocation(format, datetime, location)
+	if err != nil {
+		log.Printf("Cannot parse time: %s", datetime)
+		var parseErr *time.ParseError
+		if errors.As(err, &parseErr) {
+			log.Print(parseErr)
+		}
+	}
+	return result, err
+}
+
+var locations = map[string]*time.Location{
+	"Portland": loadLocation("America/Los_Angeles"),
+}
+
+var shortWeekdays = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+
+var thisYear = time.Now().Year()
+
 func scrapeClintonStateTheater() []Screening {
 	log.Printf("Scraping Clinton State Theater...")
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
@@ -255,7 +284,7 @@ func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
 	log.Printf("Scraping Hollywood Theater...")
 	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
-  defer page.MustClose()
+	defer page.MustClose()
 	eventGridItemEls := page.MustElements(".event-grid-item")
 	screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
 	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
@@ -273,7 +302,7 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 	log.Printf("Scraping Academy Theater...")
 	screenings := []Screening{}
 	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
-  defer page.MustClose()
+	defer page.MustClose()
 	eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
 	filmUrls := []string{}
 	location, err := time.LoadLocation("America/Los_Angeles")
@@ -329,10 +358,47 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
 	log.Printf("Scraping CineMagic Theater...")
 	screenings := []Screening{}
-	page := browser.MustPage("https://tickets.thecinemagictheater.com/now-showing").MustWaitStable()
-  defer page.MustClose()
-  // TODO
-  return screenings
+  url := "https://tickets.thecinemagictheater.com/now-showing"
+	page := browser.MustPage(url).MustWaitStable()
+	defer page.MustClose()
+	calendarListEls := page.MustElements("div.calendar-filter li:not(.calendar)")
+	for _, calListEl := range calendarListEls {
+		date := calListEl.MustText()
+		log.Printf("date: '%s'", date)
+		date = strings.Replace(date, "Today", "", 1)
+		date = strings.TrimSpace(date)
+		dateTokens := strings.SplitAfter(date, "\n")
+		log.Printf("dateTokens: %s", dateTokens)
+		if len(dateTokens) != 3 {
+			log.Printf("Wrong number of date tokens")
+			continue
+		}
+		weekday := strings.TrimSpace(dateTokens[0])
+		dayNum := strings.TrimSpace(dateTokens[1])
+		month := strings.TrimSpace(dateTokens[2])
+		year := time.Now().Local().Year()
+		if time.Now().Local().Month() == time.December && month == "Jan" {
+			year++
+		}
+    yearStr := strconv.Itoa(year)
+		if !slices.Contains(shortWeekdays, weekday) {
+			log.Printf("Weekday is not valid")
+			continue
+		}
+		calListEl.MustClick().MustWaitStable()
+		title := page.MustElement("div.movie-container div.text-white div.text-h5").MustText()
+		log.Printf("Title is: '%s'", title)
+		timeEls := page.MustElements("div.movie-container div.showings.col.row button")
+		for _, timeEl := range timeEls {
+			timeStr := timeEl.MustText()
+			log.Printf("timeStr: '%s'", timeStr)
+			assembledTime := month + " " + dayNum + " " + yearStr + " " + timeStr
+			time, err := getTime("Jan _2 2006 3:04 PM", assembledTime, locations["Portland"])
+      if err != nil { continue }
+      screenings = append(screenings, Screening{time: time, title: title, url: url, theater: "CineMagic Theater"})
+		}
+	}
+	return screenings
 }
 
 func main() {
@@ -341,9 +407,10 @@ func main() {
 	browser := getBrowser()
 	defer browser.MustClose()
 	screenings := []Screening{}
-	screenings = append(screenings, scrapeClintonStateTheater()...)
-	screenings = append(screenings, scrapeHollywoodTheater(browser)...)
-	screenings = append(screenings, scrapeAcademyTheater(browser)...)
+	// screenings = append(screenings, scrapeClintonStateTheater()...)
+	// screenings = append(screenings, scrapeHollywoodTheater(browser)...)
+	// screenings = append(screenings, scrapeAcademyTheater(browser)...)
+	screenings = append(screenings, scrapeCineMagicTheater(browser)...)
 	sort.Slice(screenings, func(i, j int) bool {
 		return screenings[i].time.Before(screenings[j].time)
 	})
