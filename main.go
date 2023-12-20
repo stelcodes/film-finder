@@ -267,6 +267,10 @@ func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
 				}
 				continue
 			}
+			// If time is 6 months behind current date or more, assume it's in the next year
+			if time.Now().Sub(result) > (time.Hour * 24 * 30 * 6) {
+				result = result.AddDate(1, 0, 0)
+			}
 			url := timeEl.MustAttribute("href")
 			s := Screening{
 				title:   title,
@@ -358,7 +362,7 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
 	log.Printf("Scraping CineMagic Theater...")
 	screenings := []Screening{}
-  url := "https://tickets.thecinemagictheater.com/now-showing"
+	url := "https://tickets.thecinemagictheater.com/now-showing"
 	page := browser.MustPage(url).MustWaitStable()
 	defer page.MustClose()
 	calendarListEls := page.MustElements("div.calendar-filter li:not(.calendar)")
@@ -380,7 +384,7 @@ func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
 		if time.Now().Local().Month() == time.December && month == "Jan" {
 			year++
 		}
-    yearStr := strconv.Itoa(year)
+		yearStr := strconv.Itoa(year)
 		if !slices.Contains(shortWeekdays, weekday) {
 			log.Printf("Weekday is not valid")
 			continue
@@ -394,8 +398,10 @@ func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
 			log.Printf("timeStr: '%s'", timeStr)
 			assembledTime := month + " " + dayNum + " " + yearStr + " " + timeStr
 			time, err := getTime("Jan _2 2006 3:04 PM", assembledTime, locations["Portland"])
-      if err != nil { continue }
-      screenings = append(screenings, Screening{time: time, title: title, url: url, theater: "CineMagic Theater"})
+			if err != nil {
+				continue
+			}
+			screenings = append(screenings, Screening{time: time, title: title, url: url, theater: "CineMagic Theater"})
 		}
 	}
 	return screenings
