@@ -2,7 +2,7 @@
   description = "A very basic flake";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "nixpkgs";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -24,7 +24,7 @@
             pkgs.graphviz # for `go tool pprof`
             pkgs.just
             pkgs.chromium
-            inputs.self.packages.${system}.ferret-cli
+            # inputs.self.packages.${system}.ferret-cli
           ];
           shellHook = ''
             echo 'Entering Nix dev shell...'
@@ -45,3 +45,4 @@
 # https://go.dev/ref/spec
 # https://just.systems/man/en
 # https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/
+# https://gosamples.dev/sqlite-intro/
