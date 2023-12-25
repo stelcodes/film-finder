@@ -332,7 +332,7 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 			if !dayEl.MustVisible() {
 				continue
 			}
-			day := dayEl.MustText()
+			day := dayEl.MustElement("label").MustText()
 			log.Printf("Day: %s", day)
 			timesEl, _ := dayEl.Next() // Could be nil I think
 			if timesEl == nil || !timesEl.MustVisible() {
