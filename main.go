@@ -169,9 +169,8 @@ var shortWeekdays = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 
 var thisYear = time.Now().Year()
 
-func scrapeClintonStateTheater(ch chan<- Screening, wg *sync.WaitGroup) {
-	defer wg.Done()
-	defer log.Printf("Finished Clinton State Theater")
+func scrapeClintonStateTheater(ch chan<- Screening, wgParent *sync.WaitGroup) {
+	defer wgParent.Done()
 	log.Printf("Scraping Clinton State Theater...")
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
@@ -194,6 +193,7 @@ func scrapeClintonStateTheater(ch chan<- Screening, wg *sync.WaitGroup) {
 		}
 		ch <- s
 	}
+	log.Printf("Finished Clinton State Theater")
 }
 
 func getBrowser() *rod.Browser {
@@ -208,8 +208,8 @@ func getBrowser() *rod.Browser {
 	return rod.New().ControlURL(url).MustConnect()
 }
 
-func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wg *sync.WaitGroup) {
-	defer wg.Done()
+func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wgParent *sync.WaitGroup) {
+	defer wgParent.Done()
 	for i, eventGridItemEl := range eventGridItemEls {
 		log.Printf("Event #%d", i+1)
 		titleEl, err := eventGridItemEl.Element(".event-grid-header h3")
@@ -290,15 +290,15 @@ func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wg *syn
 	}
 }
 
-func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
-	defer wg.Done()
-	defer log.Printf("Finished Hollywood Theater")
+func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
+	defer wgParent.Done()
 	log.Printf("Scraping Hollywood Theater...")
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	defer page.MustClose()
 	eventGridItemEls := page.MustElements(".event-grid-item")
+	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go scrapeEventGrid(eventGridItemEls, ch, wg)
+	go scrapeEventGrid(eventGridItemEls, ch, &wg)
 	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
 	if err != nil {
 		log.Printf("Cannot click \"Coming Soon\" button")
@@ -306,12 +306,13 @@ func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.
 	buttonEl.MustClick().WaitStable(time.Millisecond * 200)
 	eventGridItemEls = page.MustElements(".event-grid-item")
 	wg.Add(1)
-	go scrapeEventGrid(eventGridItemEls, ch, wg)
+	go scrapeEventGrid(eventGridItemEls, ch, &wg)
+	wg.Wait()
+	log.Printf("Finished Hollywood Theater")
 }
 
-func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
-	defer wg.Done()
-	defer log.Printf("Finished Academy Theater")
+func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
+	defer wgParent.Done()
 	log.Printf("Scraping Academy Theater...")
 	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
 	defer page.MustClose()
@@ -328,6 +329,7 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.Wa
 		url := titleEl.MustAttribute("href")
 		filmUrls = append(filmUrls, *url)
 	}
+	wg := sync.WaitGroup{}
 	for _, url := range filmUrls {
 		wg.Add(1)
 		go func(url string) {
@@ -373,11 +375,12 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.Wa
 			}
 		}(url)
 	}
+	wg.Wait()
+	log.Printf("Finished Academy Theater")
 }
 
 func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
 	defer wgParent.Done()
-	defer log.Printf("Finished CineMagic Theater")
 	log.Printf("Scraping CineMagic Theater...")
 	url := "https://tickets.thecinemagictheater.com/now-showing"
 	page := browser.MustPage(url).MustWaitStable()
@@ -433,6 +436,7 @@ func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent 
 		}(calListEl)
 	}
 	wg.Wait()
+	log.Printf("Finished CineMagic Theater")
 }
 
 func main() {
