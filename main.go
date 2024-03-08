@@ -6,6 +6,7 @@ import (
 	"log"
 	// "net/url"
 	"os" // https://pkg.go.dev/os
+	"runtime"
 	"slices"
 	"sort"
 	"strconv"
@@ -374,62 +375,69 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.Wa
 	}
 }
 
-func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
-	defer wg.Done()
+func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
+	defer wgParent.Done()
 	defer log.Printf("Finished CineMagic Theater")
 	log.Printf("Scraping CineMagic Theater...")
 	url := "https://tickets.thecinemagictheater.com/now-showing"
 	page := browser.MustPage(url).MustWaitStable()
 	defer page.MustClose()
 	calendarListEls := page.MustElements("div.calendar-filter li:not(.calendar)")
+	wg := sync.WaitGroup{}
 	for _, calListEl := range calendarListEls {
-		date := calListEl.MustText()
-		log.Printf("date: '%s'", date)
-		date = strings.Replace(date, "Today", "", 1)
-		date = strings.TrimSpace(date)
-		dateTokens := strings.SplitAfter(date, "\n")
-		log.Printf("dateTokens: %s", dateTokens)
-		if len(dateTokens) != 3 {
-			log.Printf("Wrong number of date tokens")
-			continue
-		}
-		weekday := strings.TrimSpace(dateTokens[0])
-		dayNum := strings.TrimSpace(dateTokens[1])
-		month := strings.TrimSpace(dateTokens[2])
-		year := time.Now().Local().Year()
-		if time.Now().Local().Month() == time.December && month == "Jan" {
-			year++
-		}
-		yearStr := strconv.Itoa(year)
-		if !slices.Contains(shortWeekdays, weekday) {
-			log.Printf("Weekday is not valid")
-			continue
-		}
-		calListEl.MustClick().MustWaitStable()
-		title := page.MustElement("div.movie-container div.text-white div.text-h5").MustText()
-		log.Printf("Title is: '%s'", title)
-		timeEls := page.MustElements("div.movie-container div.showings.col.row button")
-		for _, timeEl := range timeEls {
-			timeStr := timeEl.MustText()
-			log.Printf("timeStr: '%s'", timeStr)
-			assembledTime := month + " " + dayNum + " " + yearStr + " " + timeStr
-			time, err := getTime("Jan _2 2006 3:04 PM", assembledTime, locations["Portland"])
-			if err != nil {
-				continue
+		wg.Add(1)
+		go func(calListEl *rod.Element) {
+			defer wgParent.Done()
+			date := calListEl.MustText()
+			log.Printf("date: '%s'", date)
+			date = strings.Replace(date, "Today", "", 1)
+			date = strings.TrimSpace(date)
+			dateTokens := strings.SplitAfter(date, "\n")
+			log.Printf("dateTokens: %s", dateTokens)
+			if len(dateTokens) != 3 {
+				log.Printf("Wrong number of date tokens")
+				return
 			}
-			newScreening := Screening{
-				time:    time,
-				title:   strings.TrimSpace(title),
-				url:     url,
-				theater: "CineMagic Theater",
+			weekday := strings.TrimSpace(dateTokens[0])
+			dayNum := strings.TrimSpace(dateTokens[1])
+			month := strings.TrimSpace(dateTokens[2])
+			year := time.Now().Local().Year()
+			if time.Now().Local().Month() == time.December && month == "Jan" {
+				year++
 			}
-			ch <- newScreening
-		}
+			yearStr := strconv.Itoa(year)
+			if !slices.Contains(shortWeekdays, weekday) {
+				log.Printf("Weekday is not valid")
+				return
+			}
+			calListEl.MustClick().MustWaitStable()
+			title := page.MustElement("div.movie-container div.text-white div.text-h5").MustText()
+			log.Printf("Title is: '%s'", title)
+			timeEls := page.MustElements("div.movie-container div.showings.col.row button")
+			for _, timeEl := range timeEls {
+				timeStr := timeEl.MustText()
+				log.Printf("timeStr: '%s'", timeStr)
+				assembledTime := month + " " + dayNum + " " + yearStr + " " + timeStr
+				time, err := getTime("Jan _2 2006 3:04 PM", assembledTime, locations["Portland"])
+				if err != nil {
+					continue
+				}
+				newScreening := Screening{
+					time:    time,
+					title:   strings.TrimSpace(title),
+					url:     url,
+					theater: "CineMagic Theater",
+				}
+				ch <- newScreening
+			}
+		}(calListEl)
 	}
+	wg.Wait()
 }
 
 func main() {
 	fmt.Printf("Starting movie-cal...\n")
+	fmt.Printf("GOMAXPROCS=%d\n", runtime.NumCPU())
 	ensureDirs()
 	browser := getBrowser()
 	defer browser.MustClose()
@@ -437,10 +445,14 @@ func main() {
 	ch := make(chan Screening, 1000)
 	// we create a waitgroup - basically block until N tasks say they are done
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(1)
 	go scrapeClintonStateTheater(ch, &wg)
+	wg.Add(1)
 	go scrapeHollywoodTheater(browser, ch, &wg)
+	wg.Add(1)
 	go scrapeAcademyTheater(browser, ch, &wg)
+	wg.Add(1)
+	go scrapeCineMagicTheater(browser, ch, &wg)
 	// now we wait for everyone to finish - again, not a must.
 	// you can just receive from the channel N times, and use a timeout or something for safety
 	wg.Wait()
