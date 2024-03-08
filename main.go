@@ -207,7 +207,8 @@ func getBrowser() *rod.Browser {
 	return rod.New().ControlURL(url).MustConnect()
 }
 
-func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening) {
+func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wg *sync.WaitGroup) {
+	defer wg.Done()
 	for i, eventGridItemEl := range eventGridItemEls {
 		log.Printf("Event #%d", i+1)
 		titleEl, err := eventGridItemEl.Element(".event-grid-header h3")
@@ -295,14 +296,16 @@ func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	defer page.MustClose()
 	eventGridItemEls := page.MustElements(".event-grid-item")
-	scrapeEventGrid(eventGridItemEls, ch)
+	wg.Add(1)
+	go scrapeEventGrid(eventGridItemEls, ch, wg)
 	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
 	if err != nil {
 		log.Printf("Cannot click \"Coming Soon\" button")
 	}
-	buttonEl.MustClick().WaitStable(time.Millisecond * 500)
+	buttonEl.MustClick().WaitStable(time.Millisecond * 200)
 	eventGridItemEls = page.MustElements(".event-grid-item")
-	scrapeEventGrid(eventGridItemEls, ch)
+	wg.Add(1)
+	go scrapeEventGrid(eventGridItemEls, ch, wg)
 }
 
 func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
