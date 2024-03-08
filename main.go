@@ -184,7 +184,12 @@ func scrapeClintonStateTheater(ch chan<- Screening, wg *sync.WaitGroup) {
 		if err != nil {
 			continue
 		}
-		s := Screening{title: summary.Value, time: t, theater: "Clinton State Theater", url: url.Value}
+		s := Screening{
+			title:   strings.TrimSpace(summary.Value),
+			time:    t,
+			theater: "Clinton State Theater",
+			url:     url.Value,
+		}
 		ch <- s
 	}
 }
@@ -272,7 +277,7 @@ func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening) {
 			}
 			url := timeEl.MustAttribute("href")
 			s := Screening{
-				title:   title,
+				title:   strings.TrimSpace(title),
 				time:    result,
 				theater: "Hollywood Theater",
 				url:     "https://hollywoodtheatre.org" + *url,
@@ -347,7 +352,12 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.Wa
 					}
 					continue
 				}
-				newScreening := Screening{title: title, time: result, url: url, theater: "Academy Theater"}
+				newScreening := Screening{
+					title:   strings.TrimSpace(title),
+					time:    result,
+					url:     url,
+					theater: "Academy Theater",
+				}
 				ch <- newScreening
 			}
 		}
@@ -396,7 +406,12 @@ func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.
 			if err != nil {
 				continue
 			}
-			newScreening := Screening{time: time, title: title, url: url, theater: "CineMagic Theater"}
+			newScreening := Screening{
+				time:    time,
+				title:   strings.TrimSpace(title),
+				url:     url,
+				theater: "CineMagic Theater",
+			}
 			ch <- newScreening
 		}
 	}
