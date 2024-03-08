@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/arran4/golang-ical"
@@ -167,7 +168,8 @@ var shortWeekdays = []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 
 var thisYear = time.Now().Year()
 
-func scrapeClintonStateTheater() []Screening {
+func scrapeClintonStateTheater(ch chan<- Screening, wg *sync.WaitGroup) {
+	defer wg.Done()
 	log.Printf("Scraping Clinton State Theater...")
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
@@ -175,7 +177,6 @@ func scrapeClintonStateTheater() []Screening {
 	}
 	cal, err := openIcsFile(filename)
 	// cal.SerializeTo(os.Stdout)
-	screenings := make([]Screening, 0, 100)
 	for _, e := range cal.Events() {
 		t, err := e.GetStartAt()
 		summary := e.GetProperty("SUMMARY")
@@ -184,9 +185,8 @@ func scrapeClintonStateTheater() []Screening {
 			continue
 		}
 		s := Screening{title: summary.Value, time: t, theater: "Clinton State Theater", url: url.Value}
-		screenings = append(screenings, s)
+		ch <- s
 	}
-	return screenings
 }
 
 func getBrowser() *rod.Browser {
@@ -201,8 +201,7 @@ func getBrowser() *rod.Browser {
 	return rod.New().ControlURL(url).MustConnect()
 }
 
-func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
-	screenings := []Screening{}
+func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening) {
 	for i, eventGridItemEl := range eventGridItemEls {
 		log.Printf("Event #%d", i+1)
 		titleEl, err := eventGridItemEl.Element(".event-grid-header h3")
@@ -278,33 +277,30 @@ func scrapeEventGrid(eventGridItemEls rod.Elements) []Screening {
 				theater: "Hollywood Theater",
 				url:     "https://hollywoodtheatre.org" + *url,
 			}
-			screenings = append(screenings, s)
+			ch <- s
 		}
 	}
-	return screenings
 }
 
-func scrapeHollywoodTheater(browser *rod.Browser) []Screening {
+func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
+	defer wg.Done()
 	log.Printf("Scraping Hollywood Theater...")
-	screenings := []Screening{}
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	defer page.MustClose()
 	eventGridItemEls := page.MustElements(".event-grid-item")
-	screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
+	scrapeEventGrid(eventGridItemEls, ch)
 	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
 	if err != nil {
 		log.Printf("Cannot click \"Coming Soon\" button")
-		return screenings
 	}
-	buttonEl.MustClick().WaitStable(time.Second * 3)
+	buttonEl.MustClick().WaitStable(time.Millisecond * 500)
 	eventGridItemEls = page.MustElements(".event-grid-item")
-	screenings = append(screenings, scrapeEventGrid(eventGridItemEls)...)
-	return screenings
+	scrapeEventGrid(eventGridItemEls, ch)
 }
 
-func scrapeAcademyTheater(browser *rod.Browser) []Screening {
+func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
+	defer wg.Done()
 	log.Printf("Scraping Academy Theater...")
-	screenings := []Screening{}
 	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
 	defer page.MustClose()
 	eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
@@ -312,7 +308,7 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 	location, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		log.Printf("Could not load theater time zone location")
-		return screenings
+		return
 	}
 	for i, eventEl := range eventEls {
 		log.Printf("Movie #%d", i+1)
@@ -351,17 +347,16 @@ func scrapeAcademyTheater(browser *rod.Browser) []Screening {
 					}
 					continue
 				}
-				s := Screening{title: title, time: result, url: url, theater: "Academy Theater"}
-				screenings = append(screenings, s)
+				newScreening := Screening{title: title, time: result, url: url, theater: "Academy Theater"}
+				ch <- newScreening
 			}
 		}
 	}
-	return screenings
 }
 
-func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
+func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
+	defer wg.Done()
 	log.Printf("Scraping CineMagic Theater...")
-	screenings := []Screening{}
 	url := "https://tickets.thecinemagictheater.com/now-showing"
 	page := browser.MustPage(url).MustWaitStable()
 	defer page.MustClose()
@@ -401,10 +396,10 @@ func scrapeCineMagicTheater(browser *rod.Browser) []Screening {
 			if err != nil {
 				continue
 			}
-			screenings = append(screenings, Screening{time: time, title: title, url: url, theater: "CineMagic Theater"})
+			newScreening := Screening{time: time, title: title, url: url, theater: "CineMagic Theater"}
+			ch <- newScreening
 		}
 	}
-	return screenings
 }
 
 func main() {
@@ -412,11 +407,25 @@ func main() {
 	ensureDirs()
 	browser := getBrowser()
 	defer browser.MustClose()
-	screenings := []Screening{}
-	screenings = append(screenings, scrapeClintonStateTheater()...)
-	screenings = append(screenings, scrapeHollywoodTheater(browser)...)
-	screenings = append(screenings, scrapeAcademyTheater(browser)...)
+	// we create a buffered channel so writing to it won't block while we wait for the waitgroup to finish
+	ch := make(chan Screening, 1000)
+	// we create a waitgroup - basically block until N tasks say they are done
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+	go scrapeClintonStateTheater(ch, &wg)
+	go scrapeHollywoodTheater(browser, ch, &wg)
+	go scrapeAcademyTheater(browser, ch, &wg)
+	// now we wait for everyone to finish - again, not a must.
+	// you can just receive from the channel N times, and use a timeout or something for safety
+	wg.Wait()
+	// we need to close the channel or the following loop will get stuck
+	close(ch)
 	// screenings = append(screenings, scrapeCineMagicTheater(browser)...)
+	// we iterate over the closed channel and receive all data from it
+	screenings := []Screening{}
+	for screening := range ch {
+		screenings = append(screenings, screening)
+	}
 	sort.Slice(screenings, func(i, j int) bool {
 		return screenings[i].time.After(screenings[j].time)
 	})
