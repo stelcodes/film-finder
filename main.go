@@ -170,6 +170,7 @@ var thisYear = time.Now().Year()
 
 func scrapeClintonStateTheater(ch chan<- Screening, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer log.Printf("Finished Clinton State Theater")
 	log.Printf("Scraping Clinton State Theater...")
 	filename, err := downloadFile("cstpdx.ics", "https://cstpdx.com/schedule/list/?ical=1")
 	if err != nil {
@@ -289,6 +290,7 @@ func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening) {
 
 func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer log.Printf("Finished Hollywood Theater")
 	log.Printf("Scraping Hollywood Theater...")
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	defer page.MustClose()
@@ -305,6 +307,7 @@ func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.
 
 func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer log.Printf("Finished Academy Theater")
 	log.Printf("Scraping Academy Theater...")
 	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
 	defer page.MustClose()
@@ -322,50 +325,55 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.Wa
 		filmUrls = append(filmUrls, *url)
 	}
 	for _, url := range filmUrls {
-		log.Printf("Url: %s", url)
-		filmPage := browser.MustPage(url).MustWaitStable()
-		title := filmPage.MustElement("div.entry-info h1.entry-title").MustText()
-		log.Printf("Title: %s", title)
-		showtimeDiv := filmPage.MustElement("div.entry-showtime div.showtime")
-		dayEls := showtimeDiv.MustElements("div.st-title:not(.passedshowtime)")
-		for _, dayEl := range dayEls {
-			log.Println(dayEl)
-			if !dayEl.MustVisible() {
-				continue
-			}
-			day := dayEl.MustElement("label").MustText()
-			log.Printf("Day: %s", day)
-			timesEl, _ := dayEl.Next() // Could be nil I think
-			if timesEl == nil || !timesEl.MustVisible() {
-				continue
-			}
-			for _, spanEl := range timesEl.MustElements("span") {
-				rawTime := spanEl.MustText()
-				log.Printf("Raw time: %s", rawTime)
-				normalizedTime := strings.TrimSpace(rawTime) + " " + strings.TrimSpace(day)
-				result, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
-				if err != nil {
-					log.Printf("Cannot parse time: %s", normalizedTime)
-					var parseErr *time.ParseError
-					if errors.As(err, &parseErr) {
-						log.Print(parseErr)
-					}
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+			log.Printf("Url: %s", url)
+			filmPage := browser.MustPage(url).MustWaitStable()
+			title := filmPage.MustElement("div.entry-info h1.entry-title").MustText()
+			log.Printf("Title: %s", title)
+			showtimeDiv := filmPage.MustElement("div.entry-showtime div.showtime")
+			dayEls := showtimeDiv.MustElements("div.st-title:not(.passedshowtime)")
+			for _, dayEl := range dayEls {
+				log.Println(dayEl)
+				if !dayEl.MustVisible() {
 					continue
 				}
-				newScreening := Screening{
-					title:   strings.TrimSpace(title),
-					time:    result,
-					url:     url,
-					theater: "Academy Theater",
+				day := dayEl.MustElement("label").MustText()
+				log.Printf("Day: %s", day)
+				timesEl, _ := dayEl.Next() // Could be nil I think
+				if timesEl == nil || !timesEl.MustVisible() {
+					continue
 				}
-				ch <- newScreening
+				for _, spanEl := range timesEl.MustElements("span") {
+					rawTime := spanEl.MustText()
+					log.Printf("Raw time: %s", rawTime)
+					normalizedTime := strings.TrimSpace(rawTime) + " " + strings.TrimSpace(day)
+					result, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
+					if err != nil {
+						log.Printf("Cannot parse time: %s", normalizedTime)
+						var parseErr *time.ParseError
+						if errors.As(err, &parseErr) {
+							log.Print(parseErr)
+						}
+						continue
+					}
+					newScreening := Screening{
+						title:   strings.TrimSpace(title),
+						time:    result,
+						url:     url,
+						theater: "Academy Theater",
+					}
+					ch <- newScreening
+				}
 			}
-		}
+		}(url)
 	}
 }
 
 func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer log.Printf("Finished CineMagic Theater")
 	log.Printf("Scraping CineMagic Theater...")
 	url := "https://tickets.thecinemagictheater.com/now-showing"
 	page := browser.MustPage(url).MustWaitStable()
