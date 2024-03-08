@@ -416,9 +416,9 @@ func main() {
 	screenings = append(screenings, scrapeClintonStateTheater()...)
 	screenings = append(screenings, scrapeHollywoodTheater(browser)...)
 	screenings = append(screenings, scrapeAcademyTheater(browser)...)
-	screenings = append(screenings, scrapeCineMagicTheater(browser)...)
+	// screenings = append(screenings, scrapeCineMagicTheater(browser)...)
 	sort.Slice(screenings, func(i, j int) bool {
-		return screenings[i].time.Before(screenings[j].time)
+		return screenings[i].time.After(screenings[j].time)
 	})
 	printScreenings(screenings)
 }
