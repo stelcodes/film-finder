@@ -185,6 +185,9 @@ func scrapeClintonStateTheater(ch chan<- Screening, wgParent *sync.WaitGroup) {
 		if err != nil {
 			continue
 		}
+		if t.Before(time.Now()) {
+			continue
+		}
 		s := Screening{
 			title:   strings.TrimSpace(summary.Value),
 			time:    t,
@@ -265,7 +268,7 @@ func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wgParen
 				continue
 			}
 			normalizedTime := strings.Join([]string{timeNums, timeAmPm, month, dayNum, year}, " ")
-			result, err := time.ParseInLocation("3:04 PM January _2 2006", normalizedTime, location)
+			t, err := time.ParseInLocation("3:04 PM January _2 2006", normalizedTime, location)
 			if err != nil {
 				log.Printf("Cannot parse time: %s", normalizedTime)
 				var parseErr *time.ParseError
@@ -275,13 +278,16 @@ func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wgParen
 				continue
 			}
 			// If time is 6 months behind current date or more, assume it's in the next year
-			if time.Now().Sub(result) > (time.Hour * 24 * 30 * 6) {
-				result = result.AddDate(1, 0, 0)
+			if time.Now().Sub(t) > (time.Hour * 24 * 30 * 6) {
+				t = t.AddDate(1, 0, 0)
+			}
+			if t.Before(time.Now()) {
+				continue
 			}
 			url := timeEl.MustAttribute("href")
 			s := Screening{
 				title:   strings.TrimSpace(title),
-				time:    result,
+				time:    t,
 				theater: "Hollywood Theater",
 				url:     "https://hollywoodtheatre.org" + *url,
 			}
@@ -355,7 +361,7 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wgParent *s
 					rawTime := spanEl.MustText()
 					log.Printf("Raw time: %s", rawTime)
 					normalizedTime := strings.TrimSpace(rawTime) + " " + strings.TrimSpace(day)
-					result, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
+					t, err := time.ParseInLocation("3:04 PM January _2, 2006", normalizedTime, location)
 					if err != nil {
 						log.Printf("Cannot parse time: %s", normalizedTime)
 						var parseErr *time.ParseError
@@ -364,9 +370,12 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wgParent *s
 						}
 						continue
 					}
+					if t.Before(time.Now()) {
+						continue
+					}
 					newScreening := Screening{
 						title:   strings.TrimSpace(title),
-						time:    result,
+						time:    t,
 						url:     url,
 						theater: "Academy Theater",
 					}
@@ -421,12 +430,15 @@ func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent 
 				timeStr := timeEl.MustText()
 				log.Printf("timeStr: '%s'", timeStr)
 				assembledTime := month + " " + dayNum + " " + yearStr + " " + timeStr
-				time, err := getTime("Jan _2 2006 3:04 PM", assembledTime, locations["Portland"])
+				t, err := getTime("Jan _2 2006 3:04 PM", assembledTime, locations["Portland"])
 				if err != nil {
 					continue
 				}
+				if t.Before(time.Now()) {
+					continue
+				}
 				newScreening := Screening{
-					time:    time,
+					time:    t,
 					title:   strings.TrimSpace(title),
 					url:     url,
 					theater: "CineMagic Theater",
