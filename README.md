@@ -2,10 +2,27 @@
 
 A web scraping program that finds classic movie screenings and prints them out.
 
+## Bugs
+- Hollywood theater non-zero minute number becomes zero somehow (7:30 -> 7:00)
+
 ## TODO
 
-### Parallelize all movie fetching
+## Benchmarks
 
-I think the way to do this is in Go is to pass channels into almost every function as a parameter with the input type of the Movie struct. Functions won't return a Movie struct, they will just push any new Movie structs down the channel. And a single WaitGroup can be used to keep track of how many active go processes there are. So that will need to be passed around too. With two new parameters for most functions, should I put both of them into a single Context struct? Is that what the ctx argument does normally in Go? I'll have to read up on that more.
+### Parallelizing Requests
+Before:
+```
 
-https://stackoverflow.com/questions/24238820/parallel-for-loop
+________________________________________________________
+Executed in   26.99 secs      fish           external
+   usr time  525.83 millis  281.00 micros  525.55 millis
+   sys time  259.26 millis  166.00 micros  259.09 millis
+
+```
+After:
+```
+________________________________________________________
+Executed in   10.60 secs      fish           external
+   usr time  565.64 millis    0.00 micros  565.64 millis
+   sys time  260.37 millis  468.00 micros  259.90 millis
+```
