@@ -399,7 +399,7 @@ func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent 
 	for _, calListEl := range calendarListEls {
 		wg.Add(1)
 		go func(calListEl *rod.Element) {
-			defer wgParent.Done()
+			defer wg.Done()
 			date := calListEl.MustText()
 			log.Printf("date: '%s'", date)
 			date = strings.Replace(date, "Today", "", 1)
