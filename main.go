@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	// "net/url"
+	"flag"
 	"os" // https://pkg.go.dev/os
 	"runtime"
+	"runtime/pprof"
 	"slices"
 	"sort"
 	"strconv"
@@ -214,6 +216,7 @@ func getBrowser() *rod.Browser {
 func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wgParent *sync.WaitGroup) {
 	defer wgParent.Done()
 	for i, eventGridItemEl := range eventGridItemEls {
+		log.Println("Starting an event grid scan for Hollywood Theater")
 		log.Printf("Event #%d", i+1)
 		titleEl, err := eventGridItemEl.Element(".event-grid-header h3")
 		if err != nil {
@@ -340,6 +343,7 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wgParent *s
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
+			log.Println("Starting a request for Academy Theater")
 			log.Printf("Url: %s", url)
 			filmPage := browser.MustPage(url).MustWaitStable()
 			title := filmPage.MustElement("div.entry-info h1.entry-title").MustText()
@@ -400,6 +404,7 @@ func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent 
 		wg.Add(1)
 		go func(calListEl *rod.Element) {
 			defer wg.Done()
+			log.Println("Starting a request for cinemagic")
 			date := calListEl.MustText()
 			log.Printf("date: '%s'", date)
 			date = strings.Replace(date, "Today", "", 1)
@@ -451,9 +456,27 @@ func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent 
 	log.Printf("Finished CineMagic Theater")
 }
 
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
+var memprofile = flag.String("memprofile", "", "write memory profile to `file`")
+
 func main() {
+
+	// Profiling setup
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	fmt.Printf("Starting movie-cal...\n")
-	fmt.Printf("GOMAXPROCS=%d\n", runtime.NumCPU())
+	fmt.Printf("GOMAXPROCS default is %d\n", runtime.NumCPU())
 	ensureDirs()
 	browser := getBrowser()
 	defer browser.MustClose()
@@ -471,7 +494,9 @@ func main() {
 	go scrapeCineMagicTheater(browser, ch, &wg)
 	// now we wait for everyone to finish - again, not a must.
 	// you can just receive from the channel N times, and use a timeout or something for safety
+	log.Println("Start waiting")
 	wg.Wait()
+	log.Println("Done waiting")
 	// we need to close the channel or the following loop will get stuck
 	close(ch)
 	// screenings = append(screenings, scrapeCineMagicTheater(browser)...)
@@ -484,4 +509,17 @@ func main() {
 		return screenings[i].time.After(screenings[j].time)
 	})
 	printScreenings(screenings)
+
+	// Profiling cleanup
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		defer f.Close() // error handling omitted for example
+		runtime.GC()    // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+	}
 }
