@@ -299,9 +299,11 @@ func scrapeEventGrid(eventGridItemEls rod.Elements, ch chan<- Screening, wgParen
 	}
 }
 
-func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
+func scrapeHollywoodTheater(bpool *rod.BrowserPool, ch chan<- Screening, wgParent *sync.WaitGroup) {
 	defer wgParent.Done()
 	log.Printf("Scraping Hollywood Theater...")
+	browser := bpool.Get(getBrowser)
+	defer bpool.Put(browser)
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	defer page.MustClose()
 	eventGridItemEls := page.MustElements(".event-grid-item")
@@ -320,9 +322,11 @@ func scrapeHollywoodTheater(browser *rod.Browser, ch chan<- Screening, wgParent 
 	log.Printf("Finished Hollywood Theater")
 }
 
-func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
+func scrapeAcademyTheater(bpool *rod.BrowserPool, ch chan<- Screening, wgParent *sync.WaitGroup) {
 	defer wgParent.Done()
 	log.Printf("Scraping Academy Theater...")
+	browser := bpool.Get(getBrowser)
+	defer bpool.Put(browser)
 	page := browser.MustPage("https://academytheaterpdx.com/revivalseries/").MustWaitStable()
 	defer page.MustClose()
 	eventEls := page.MustElements("div.at-np-bot-pad.at-np-container")
@@ -392,9 +396,11 @@ func scrapeAcademyTheater(browser *rod.Browser, ch chan<- Screening, wgParent *s
 	log.Printf("Finished Academy Theater")
 }
 
-func scrapeCineMagicTheater(browser *rod.Browser, ch chan<- Screening, wgParent *sync.WaitGroup) {
+func scrapeCineMagicTheater(bpool *rod.BrowserPool, ch chan<- Screening, wgParent *sync.WaitGroup) {
 	defer wgParent.Done()
 	log.Printf("Scraping CineMagic Theater...")
+	browser := bpool.Get(getBrowser)
+	defer bpool.Put(browser)
 	url := "https://tickets.thecinemagictheater.com/now-showing"
 	page := browser.MustPage(url).MustWaitStable()
 	defer page.MustClose()
@@ -478,8 +484,7 @@ func main() {
 	fmt.Printf("Starting movie-cal...\n")
 	fmt.Printf("GOMAXPROCS default is %d\n", runtime.NumCPU())
 	ensureDirs()
-	browser := getBrowser()
-	defer browser.MustClose()
+	bpool := rod.NewBrowserPool(12)
 	// we create a buffered channel so writing to it won't block while we wait for the waitgroup to finish
 	ch := make(chan Screening, 1000)
 	// we create a waitgroup - basically block until N tasks say they are done
@@ -487,11 +492,11 @@ func main() {
 	wg.Add(1)
 	go scrapeClintonStateTheater(ch, &wg)
 	wg.Add(1)
-	go scrapeHollywoodTheater(browser, ch, &wg)
+	go scrapeHollywoodTheater(&bpool, ch, &wg)
 	wg.Add(1)
-	go scrapeAcademyTheater(browser, ch, &wg)
+	go scrapeAcademyTheater(&bpool, ch, &wg)
 	wg.Add(1)
-	go scrapeCineMagicTheater(browser, ch, &wg)
+	go scrapeCineMagicTheater(&bpool, ch, &wg)
 	// now we wait for everyone to finish - again, not a must.
 	// you can just receive from the channel N times, and use a timeout or something for safety
 	log.Println("Start waiting")
