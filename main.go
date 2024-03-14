@@ -314,8 +314,8 @@ func scrapeHollywoodTheater(bpool *rod.BrowserPool, ch chan<- Screening, wgParen
 	if err != nil {
 		log.Printf("Cannot click \"Coming Soon\" button")
 	}
-	buttonEl.MustClick().WaitStable(time.Millisecond * 200)
-	eventGridItemEls = page.MustElements(".event-grid-item")
+	buttonEl.MustClick()
+	eventGridItemEls = page.MustWaitStable().MustElements(".event-grid-item")
 	wg.Add(1)
 	go scrapeEventGrid(eventGridItemEls, ch, &wg)
 	wg.Wait()
