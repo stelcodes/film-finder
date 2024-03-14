@@ -136,9 +136,10 @@ func printScreenings(screenings []Screening) {
 	println("SCREENINGS:\n============================================================")
 	for _, s := range screenings {
 		println("TITLE: " + s.title)
-		println("TIME: " + s.time.In(tz).Format("Mon Jan _2 3:00 PM MST 2006"))
+		println("TIME: " + s.time.In(tz).Format("Mon Jan _2 3:04 PM MST 2006"))
 		println("THEATER: " + s.theater)
 		println("URL: " + s.url)
+		println("- [ ] " + s.time.Format("15:04") + " [" + s.title + " Screening](" + s.url + ") 📅 " + s.time.Format("2006-01-02"))
 		println()
 	}
 }
