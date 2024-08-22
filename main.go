@@ -133,6 +133,7 @@ func printScreenings(screenings []Screening) {
 			log.Fatal("Timezone error")
 		}
 	}
+	slices.Reverse(screenings)
 	println("SCREENINGS:\n============================================================")
 	for _, s := range screenings {
 		println("TITLE: " + s.title)
@@ -307,16 +308,16 @@ func scrapeHollywoodTheater(bpool *rod.BrowserPool, ch chan<- Screening, wgParen
 	defer bpool.Put(browser)
 	page := browser.MustPage("https://hollywoodtheatre.org/").MustWaitStable()
 	defer page.MustClose()
-	eventGridItemEls := page.MustElements(".event-grid-item")
+	// eventGridItemEls := page.MustElements(".event-grid-item")
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go scrapeEventGrid(eventGridItemEls, ch, &wg)
+	// wg.Add(1)
+	// go scrapeEventGrid(eventGridItemEls, ch, &wg)
 	buttonEl, err := page.Element("a[data-events-target=\"comingSoonTab\"]")
 	if err != nil {
 		log.Printf("Cannot click \"Coming Soon\" button")
 	}
 	buttonEl.MustClick()
-	eventGridItemEls = page.MustWaitStable().MustElements(".event-grid-item")
+	eventGridItemEls := page.MustWaitStable().MustElements(".event-grid-item")
 	wg.Add(1)
 	go scrapeEventGrid(eventGridItemEls, ch, &wg)
 	wg.Wait()
@@ -512,7 +513,10 @@ func main() {
 		screenings = append(screenings, screening)
 	}
 	sort.Slice(screenings, func(i, j int) bool {
-		return screenings[i].time.After(screenings[j].time)
+		return screenings[i].time.Before(screenings[j].time)
+	})
+	slices.CompactFunc(screenings, func(i, j Screening) bool {
+		return strings.ToLower(i.title) == strings.ToLower(j.title) && i.time == j.time && i.theater == i.theater
 	})
 	printScreenings(screenings)
 
